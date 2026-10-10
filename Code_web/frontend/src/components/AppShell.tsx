@@ -21,6 +21,9 @@ export function AppShell({ children, streak }: { children: ReactNode; streak?: n
   async function signOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("studyflow_demo_mode");
+    }
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
