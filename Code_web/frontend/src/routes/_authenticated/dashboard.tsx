@@ -1,11 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { ChevronRight, Clock, Check } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronRight, Clock, Check, Bell } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
-import { PomodoroPanel } from "@/components/Pomodoro";
 import { TaskRow } from "@/components/TaskRow";
 import {
   computeStreak,
@@ -21,6 +20,7 @@ import {
   formatTaskTitleWithTime,
   getTaskTimeDisplay,
   getTaskSortMinutes,
+  getTaskDurationDisplay,
   type Task,
 } from "@/lib/studyflow";
 
@@ -41,6 +41,7 @@ function Dashboard() {
   const [quick, setQuick] = useState("");
   const [quickStart, setQuickStart] = useState("");
   const [quickEnd, setQuickEnd] = useState("");
+  const [remindingTaskId, setRemindingTaskId] = useState<string | null>(null);
   const today = toDateKey(new Date());
 
   const tasksQuery = useQuery({ queryKey: ["tasks"], queryFn: fetchTasks });
@@ -86,12 +87,92 @@ function Dashboard() {
 
   const remove = useMutation({ mutationFn: (task: Task) => deleteTask(task.id), onSuccess: invalidate });
 
-  // Lọc danh sách công việc có cài đặt khung giờ và sắp xếp theo thứ tự thời gian
+  // Filter scheduled tasks and sort by start time
   const scheduledTasks = todays
     .filter((t) => getTaskTimeDisplay(t) !== null)
     .sort((a, b) => getTaskSortMinutes(a) - getTaskSortMinutes(b));
 
   const circumference = 2 * Math.PI * 42;
+
+  // Retrieve current user email
+  const getCurrentUserEmail = (): string | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem("studyflow_current_user");
+      if (raw) {
+        const u = JSON.parse(raw);
+        return u.email || null;
+      }
+    } catch {
+      // fallback
+    }
+    return null;
+  };
+
+  const userEmail = getCurrentUserEmail();
+
+  // Send an email reminder for a task
+  const sendEmailReminder = async (task: Task, isManual: boolean = false) => {
+    if (!userEmail) {
+      toast.info("Please sign in with your email to receive reminders.");
+      return;
+    }
+    const parsed = parseTaskTime(task.title);
+    setRemindingTaskId(task.id);
+    try {
+      const res = await fetch("/api/send-reminder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: userEmail,
+          taskTitle: parsed.cleanTitle,
+          scheduledTime: parsed.timeRange || (task.plan_hour ? `${task.plan_hour}:00` : "Scheduled Time"),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to send email reminder");
+      } else {
+        toast.success(`Reminder sent to ${userEmail} for "${parsed.cleanTitle}"!`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send reminder");
+    } finally {
+      setRemindingTaskId(null);
+    }
+  };
+
+  // Automated background reminder checker
+  useEffect(() => {
+    if (!userEmail || scheduledTasks.length === 0) return;
+
+    const checkAndNotify = async () => {
+      const now = new Date();
+      const currentTotalMins = now.getHours() * 60 + now.getMinutes();
+      const sentKey = `studyflow_sent_reminders_${today}`;
+      const sentIds: string[] = JSON.parse(localStorage.getItem(sentKey) || "[]");
+
+      for (const t of scheduledTasks) {
+        if (t.completed) continue;
+        const parsed = parseTaskTime(t.title);
+        if (!parsed.startTime) continue;
+
+        const [h, m] = parsed.startTime.split(":").map(Number);
+        const taskStartMins = (h || 0) * 60 + (m || 0);
+
+        // Notify when time is within the current 5-minute window
+        if (currentTotalMins >= taskStartMins && currentTotalMins <= taskStartMins + 5 && !sentIds.includes(t.id)) {
+          sentIds.push(t.id);
+          localStorage.setItem(sentKey, JSON.stringify(sentIds));
+          sendEmailReminder(t, false);
+        }
+      }
+    };
+
+    checkAndNotify();
+    const timer = setInterval(checkAndNotify, 30000);
+    return () => clearInterval(timer);
+  }, [scheduledTasks, userEmail, today]);
 
   const handleQuickSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +218,7 @@ function Dashboard() {
           <input
             value={quick}
             onChange={(e) => setQuick(e.target.value)}
-            placeholder="Quick capture — gõ công việc cần làm..."
+            placeholder="Quick capture — type a study task..."
             className="min-w-[200px] flex-1 bg-transparent text-sm placeholder:text-faint focus:outline-none"
           />
 
@@ -147,7 +228,7 @@ function Dashboard() {
               type="time"
               value={quickStart}
               onChange={(e) => setQuickStart(e.target.value)}
-              title="Giờ bắt đầu (tùy chọn)"
+              title="Start time (optional)"
               className="rounded bg-transparent font-mono text-xs text-muted focus:text-foreground focus:outline-none"
             />
             <span className="font-mono text-xs text-faint">-</span>
@@ -155,7 +236,7 @@ function Dashboard() {
               type="time"
               value={quickEnd}
               onChange={(e) => setQuickEnd(e.target.value)}
-              title="Giờ kết thúc (tùy chọn)"
+              title="End time (optional)"
               className="rounded bg-transparent font-mono text-xs text-muted focus:text-foreground focus:outline-none"
             />
           </div>
@@ -164,7 +245,7 @@ function Dashboard() {
             type="submit"
             className="shrink-0 rounded-xl bg-primary px-4 py-2 font-display text-xs font-semibold text-primary-foreground transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0"
           >
-            Thêm việc
+            Add task
           </button>
         </form>
       </header>
@@ -212,15 +293,15 @@ function Dashboard() {
           </div>
 
           <div className="mt-4 flex items-center justify-between px-1">
-            <h2 className="font-display text-sm font-semibold tracking-tight">Danh sách nhiệm vụ hôm nay</h2>
+            <h2 className="font-display text-sm font-semibold tracking-tight">Today's Tasks</h2>
             <span className="font-mono text-[10px] uppercase tracking-widest text-faint">
-              {todays.length - done} chưa xong
+              {todays.length - done} remaining
             </span>
           </div>
           <ul className="mt-2 space-y-2">
             {todays.length === 0 && (
               <li className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">
-                Chưa có nhiệm vụ nào — nhập nhiệm vụ ở ô phía trên để bắt đầu.
+                No tasks yet — enter a task above to get started.
               </li>
             )}
             {todays.map((task) => (
@@ -238,9 +319,9 @@ function Dashboard() {
 
         <section className="col-span-12 animate-rise lg:col-span-7">
           <div className="flex items-center justify-between px-1">
-            <h2 className="font-display text-sm font-semibold tracking-tight">Lịch trình hôm nay (Timeline)</h2>
+            <h2 className="font-display text-sm font-semibold tracking-tight">Today's Timeline</h2>
             <span className="font-mono text-[10px] uppercase tracking-widest text-faint">
-              {scheduledTasks.length} khung giờ đã lên lịch
+              {scheduledTasks.length} scheduled blocks
             </span>
           </div>
 
@@ -248,9 +329,9 @@ function Dashboard() {
             {scheduledTasks.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border p-8 text-center">
                 <Clock className="mx-auto size-8 text-muted/40 mb-2" />
-                <p className="text-sm font-medium text-foreground">Chưa có công việc nào được lên lịch giờ</p>
+                <p className="text-sm font-medium text-foreground">No tasks scheduled for today</p>
                 <p className="mt-1 text-xs text-muted max-w-md mx-auto">
-                  Chỉ các công việc được đặt khung giờ chính xác (như 01:15 - 03:25) mới hiển thị tại đây. Bấm vào nút <span className="font-mono text-primary font-semibold">+ Đặt giờ</span> ở danh sách công việc bên cạnh để hẹn giờ!
+                  Only tasks with scheduled time ranges (e.g. 01:15 - 03:25) appear here. Click <span className="font-mono text-primary font-semibold">+ Set time</span> on any task to schedule it!
                 </p>
               </div>
             ) : (
@@ -259,7 +340,10 @@ function Dashboard() {
                   const cat = categories.find((c) => c.id === t.category_id);
                   const colors = catColor(cat?.color);
                   const timeDisplay = getTaskTimeDisplay(t);
+                  const durationDisplay = getTaskDurationDisplay(t);
                   const parsed = parseTaskTime(t.title);
+                  const isReminding = remindingTaskId === t.id;
+
                   return (
                     <div
                       key={t.id}
@@ -271,6 +355,14 @@ function Dashboard() {
                             <Clock className="size-3" />
                             {timeDisplay}
                           </span>
+
+                          {/* Dynamic duration (End time - Start time) */}
+                          {durationDisplay && (
+                            <span className="flex items-center gap-1 rounded bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-400">
+                              ⏱ {durationDisplay}
+                            </span>
+                          )}
+
                           {cat && (
                             <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${colors.text}`}>
                               {cat.name}
@@ -280,6 +372,7 @@ function Dashboard() {
                             {t.priority}
                           </span>
                         </div>
+
                         <p
                           className={`mt-2 text-sm font-medium break-words leading-snug ${
                             t.completed ? "line-through text-muted" : "text-foreground"
@@ -288,26 +381,35 @@ function Dashboard() {
                           {parsed.cleanTitle}
                         </p>
                       </div>
-                      <button
-                        onClick={() => toggle.mutate(t)}
-                        aria-label="Toggle task"
-                        className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border transition-colors ${
-                          t.completed
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border hover:border-primary"
-                        }`}
-                      >
-                        {t.completed && <Check className="size-3" />}
-                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => sendEmailReminder(t, true)}
+                          disabled={isReminding}
+                          title={userEmail ? `Send email reminder to ${userEmail}` : "Sign in to receive email reminders"}
+                          className="flex items-center gap-1 rounded-lg border border-border/80 bg-surface/80 px-2 py-1 text-[11px] font-mono text-muted transition-colors hover:border-primary/40 hover:text-primary active:scale-95 disabled:opacity-50"
+                        >
+                          <Bell className={`size-3 ${isReminding ? "animate-spin" : ""}`} />
+                          <span className="hidden sm:inline">Email alert</span>
+                        </button>
+
+                        <button
+                          onClick={() => toggle.mutate(t)}
+                          aria-label="Toggle task"
+                          className={`grid size-6 shrink-0 place-items-center rounded-full border transition-colors ${
+                            t.completed
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border hover:border-primary"
+                          }`}
+                        >
+                          {t.completed && <Check className="size-3.5" />}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
-
-          <div className="mt-4">
-            <PomodoroPanel />
           </div>
         </section>
       </div>

@@ -122,6 +122,38 @@ export function getTaskSortMinutes(task: Task): number {
   return 9999;
 }
 
+export function calculateDurationMinutes(startTime: string | null, endTime: string | null): number | null {
+  if (!startTime || !endTime) return null;
+  const [sh, sm] = startTime.split(":").map(Number);
+  const [eh, em] = endTime.split(":").map(Number);
+  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return null;
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff < 0) {
+    diff += 24 * 60;
+  }
+  return diff;
+}
+
+export function formatDuration(minutes: number | null): string | null {
+  if (minutes === null || minutes <= 0) return null;
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  if (hours > 0 && remainingMins > 0) {
+    return `${hours}h ${remainingMins}m (${minutes}m)`;
+  }
+  if (hours > 0) {
+    return `${hours}h (${minutes}m)`;
+  }
+  return `${minutes} mins`;
+}
+
+export function getTaskDurationDisplay(task: Task): string | null {
+  const parsed = parseTaskTime(task.title);
+  if (!parsed.startTime || !parsed.endTime) return null;
+  const mins = calculateDurationMinutes(parsed.startTime, parsed.endTime);
+  return formatDuration(mins);
+}
+
 const DEMO_CATEGORIES_KEY = "studyflow_demo_categories";
 const DEMO_TASKS_KEY = "studyflow_demo_tasks";
 
@@ -161,7 +193,7 @@ function getDemoTasks(): Task[] {
       },
       {
         id: "demo-task-2",
-        title: "Đóng gói Docker & chuẩn bị Portfolio [13:15 - 15:30]",
+        title: "Docker containerization & Portfolio setup [13:15 - 15:30]",
         category_id: "demo-cat-2",
         priority: "medium",
         deadline: null,
@@ -173,7 +205,7 @@ function getDemoTasks(): Task[] {
       },
       {
         id: "demo-task-3",
-        title: "Học lý thuyết bảo mật OWASP, IDOR, SQLi",
+        title: "Review OWASP Top 10 security practices",
         category_id: "demo-cat-1",
         priority: "medium",
         deadline: null,

@@ -23,6 +23,7 @@ import {
   formatTaskTitleWithTime,
   getTaskTimeDisplay,
   getTaskSortMinutes,
+  getTaskDurationDisplay,
   type Priority,
   type Task,
 } from "@/lib/studyflow";
@@ -111,7 +112,7 @@ function Planner() {
 
   const dayTasks = tasks.filter((t) => t.plan_date === anchor);
 
-  // Chỉ lấy những công việc đã đặt giờ và sắp xếp theo thứ tự
+  // Filter scheduled tasks and sort by time
   const scheduledDayTasks = dayTasks
     .filter((t) => getTaskTimeDisplay(t) !== null)
     .sort((a, b) => getTaskSortMinutes(a) - getTaskSortMinutes(b));
@@ -183,7 +184,7 @@ function Planner() {
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Tên bài tập / nhiệm vụ..."
+            placeholder="Assignment or study task title..."
             className="min-w-[180px] flex-1 bg-transparent px-2 text-sm placeholder:text-faint focus:outline-none"
           />
           <select
@@ -191,7 +192,7 @@ function Planner() {
             onChange={(e) => setCategoryId(e.target.value)}
             className="rounded-lg border border-border bg-raised/60 px-2 py-2 font-mono text-[11px] text-muted focus:outline-none"
           >
-            <option value="">Không có danh mục</option>
+            <option value="">No category</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -208,14 +209,14 @@ function Planner() {
             <option value="low">Low</option>
           </select>
 
-          {/* Ô nhập giờ chính xác (Từ - Đến) */}
+          {/* Time range inputs (From - To) */}
           <div className="flex items-center gap-1 rounded-lg border border-border bg-raised/60 px-2 py-1 font-mono text-[11px] text-muted">
             <Clock className="size-3 text-muted" />
             <input
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              title="Giờ bắt đầu"
+              title="Start time (optional)"
               className="bg-transparent font-mono text-foreground focus:outline-none"
             />
             <span className="text-faint">-</span>
@@ -223,7 +224,7 @@ function Planner() {
               type="time"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              title="Giờ kết thúc"
+              title="End time (optional)"
               className="bg-transparent font-mono text-foreground focus:outline-none"
             />
           </div>
@@ -232,14 +233,14 @@ function Planner() {
             type="datetime-local"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
-            title="Hạn chót"
+            title="Deadline"
             className="rounded-lg border border-border bg-raised/60 px-2 py-2 font-mono text-[11px] text-muted focus:outline-none"
           />
           <button
             type="submit"
             className="rounded-xl bg-primary px-4 py-2.5 font-display text-xs font-semibold text-primary-foreground transition-transform duration-200 hover:-translate-y-0.5"
           >
-            Thêm việc
+            Add task
           </button>
         </form>
       </header>
@@ -247,11 +248,11 @@ function Planner() {
       {view === "day" && (
         <div className="mt-6 grid animate-rise grid-cols-12 gap-4">
           <section className="col-span-12 lg:col-span-5">
-            <h2 className="px-1 font-display text-sm font-semibold tracking-tight">Danh sách việc ngày này</h2>
+            <h2 className="px-1 font-display text-sm font-semibold tracking-tight">Tasks for this day</h2>
             <ul className="mt-2 space-y-2">
               {dayTasks.length === 0 && (
                 <li className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">
-                  Không có công việc nào trong ngày này.
+                  No tasks scheduled for this day.
                 </li>
               )}
               {dayTasks.map((task) => (
@@ -267,14 +268,14 @@ function Planner() {
             </ul>
           </section>
           <section className="col-span-12 lg:col-span-7">
-            <h2 className="px-1 font-display text-sm font-semibold tracking-tight">Lịch trình chi tiết (Timeline)</h2>
+            <h2 className="px-1 font-display text-sm font-semibold tracking-tight">Day Timeline</h2>
             <div className="mt-2 rounded-2xl border border-border bg-surface/70 p-4 backdrop-blur-xl">
               {scheduledDayTasks.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border p-8 text-center">
                   <Clock className="mx-auto size-8 text-muted/40 mb-2" />
-                  <p className="text-sm font-medium text-foreground">Chưa có lịch trình cho ngày này</p>
+                  <p className="text-sm font-medium text-foreground">No scheduled blocks for this day</p>
                   <p className="mt-1 text-xs text-muted max-w-md mx-auto">
-                    Chỉ những công việc có đặt khung giờ chính xác mới xuất hiện ở đây. Bấm <span className="font-mono text-primary font-semibold">+ Đặt giờ</span> ở danh sách bên cạnh để lên lịch.
+                    Only tasks with scheduled time ranges appear here. Click <span className="font-mono text-primary font-semibold">+ Set time</span> in the task list to schedule.
                   </p>
                 </div>
               ) : (
@@ -283,6 +284,7 @@ function Planner() {
                     const cat = categories.find((c) => c.id === b.category_id);
                     const colors = catColor(cat?.color);
                     const timeDisplay = getTaskTimeDisplay(b);
+                    const durationDisplay = getTaskDurationDisplay(b);
                     const parsed = parseTaskTime(b.title);
                     return (
                       <div
@@ -295,6 +297,11 @@ function Planner() {
                               <Clock className="size-3" />
                               {timeDisplay}
                             </span>
+                            {durationDisplay && (
+                              <span className="flex items-center gap-1 rounded bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-400">
+                                ⏱ {durationDisplay}
+                              </span>
+                            )}
                             {cat && (
                               <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${colors.text}`}>
                                 {cat.name}

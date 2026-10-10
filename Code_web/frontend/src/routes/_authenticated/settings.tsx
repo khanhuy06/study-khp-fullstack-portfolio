@@ -27,7 +27,23 @@ function SettingsPage() {
   const tasks = tasksQuery.data ?? [];
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) {
+        setEmail(data.user.email);
+        return;
+      }
+      try {
+        const raw = localStorage.getItem("studyflow_current_user");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setEmail(parsed.email ?? "demo@studykph.app");
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      setEmail("demo@studykph.app");
+    });
   }, []);
 
   const completed = tasks.filter((t) => t.completed).length;

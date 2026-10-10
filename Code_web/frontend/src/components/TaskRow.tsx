@@ -1,4 +1,4 @@
-import { Check, Clock, Play, Trash2, X } from "lucide-react";
+import { Check, Clock, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -7,10 +7,10 @@ import {
   parseTaskTime,
   formatTaskTitleWithTime,
   getTaskTimeDisplay,
+  getTaskDurationDisplay,
   type Category,
   type Task,
 } from "@/lib/studyflow";
-import { usePomodoro } from "@/components/Pomodoro";
 
 export function TaskRow({
   task,
@@ -25,12 +25,12 @@ export function TaskRow({
   onDelete: (task: Task) => void;
   onUpdate?: (task: Task, patch: Partial<Task>) => void;
 }) {
-  const { start } = usePomodoro();
   const category = categories.find((c) => c.id === task.category_id);
   const colors = catColor(category?.color);
 
   const parsed = parseTaskTime(task.title);
   const timeDisplay = getTaskTimeDisplay(task);
+  const durationDisplay = getTaskDurationDisplay(task);
 
   const [isEditingTime, setIsEditingTime] = useState(false);
   const [startTime, setStartTime] = useState(parsed.startTime ?? (task.plan_hour !== null ? `${String(task.plan_hour).padStart(2, "0")}:00` : ""));
@@ -72,7 +72,6 @@ export function TaskRow({
         </button>
 
         <div className="min-w-0 flex-1">
-          {/* Không dùng truncate để không bao giờ bị mất chữ khi tiêu đề dài */}
           <p
             className={`text-sm font-medium leading-snug break-words whitespace-normal ${
               task.completed ? "text-muted line-through" : "text-foreground"
@@ -96,12 +95,12 @@ export function TaskRow({
               </span>
             )}
 
-            {/* Hiển thị khung giờ chính xác */}
+            {/* Time slot display */}
             {timeDisplay ? (
               <button
                 type="button"
                 onClick={() => setIsEditingTime(!isEditingTime)}
-                title="Bấm để chỉnh lại khung giờ"
+                title="Click to edit time slot"
                 className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] text-primary transition-colors hover:bg-primary/20"
               >
                 <Clock className="size-2.5" />
@@ -111,23 +110,27 @@ export function TaskRow({
               <button
                 type="button"
                 onClick={() => setIsEditingTime(!isEditingTime)}
-                title="Đặt khung giờ làm việc"
+                title="Set scheduled time slot"
                 className="flex items-center gap-1 rounded border border-dashed border-border px-1.5 py-0.5 font-mono text-[10px] text-faint transition-colors hover:border-primary/40 hover:text-primary"
               >
                 <Clock className="size-2.5" />
-                + Đặt giờ
+                + Set time
               </button>
+            )}
+
+            {/* Dynamic calculated duration (End time - Start time) */}
+            {durationDisplay && (
+              <span
+                title="Calculated duration from scheduled time window"
+                className="flex items-center gap-1 rounded bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-400"
+              >
+                ⏱ {durationDisplay}
+              </span>
             )}
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            onClick={() => start(parsed.cleanTitle)}
-            className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 font-mono text-[10px] text-muted transition-colors hover:border-primary/40 hover:text-primary"
-          >
-            <Play className="size-3" /> 25:00
-          </button>
           <button
             onClick={() => onDelete(task)}
             aria-label="Delete task"
@@ -138,17 +141,17 @@ export function TaskRow({
         </div>
       </div>
 
-      {/* Panel chỉnh sửa khung giờ chính xác (ví dụ 1:15 - 3:25) */}
+      {/* Inline time range editor */}
       {isEditingTime && (
         <div className="mt-1 flex flex-wrap items-center gap-2 rounded-lg border border-border/80 bg-surface/90 p-2 text-xs">
-          <span className="font-mono text-[11px] text-muted">Từ:</span>
+          <span className="font-mono text-[11px] text-muted">From:</span>
           <input
             type="time"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
             className="rounded border border-border bg-raised px-2 py-1 font-mono text-[11px] text-foreground focus:outline-none"
           />
-          <span className="font-mono text-[11px] text-muted">Đến:</span>
+          <span className="font-mono text-[11px] text-muted">To:</span>
           <input
             type="time"
             value={endTime}
@@ -160,7 +163,7 @@ export function TaskRow({
             onClick={handleSaveTime}
             className="rounded bg-primary px-2.5 py-1 font-display text-[11px] font-semibold text-primary-foreground hover:opacity-90"
           >
-            Lưu giờ
+            Save
           </button>
           {timeDisplay && (
             <button
@@ -168,12 +171,13 @@ export function TaskRow({
               onClick={handleClearTime}
               className="rounded border border-border px-2 py-1 font-mono text-[11px] text-muted hover:text-high"
             >
-              Xóa giờ
+              Clear time
             </button>
           )}
           <button
             type="button"
             onClick={() => setIsEditingTime(false)}
+            aria-label="Cancel editing"
             className="p-1 text-faint hover:text-foreground"
           >
             <X className="size-3" />
