@@ -14,8 +14,7 @@
   "overrides": {
     "rolldown": "1.2.1",
     "@tanstack/react-start": "1.168.60",
-    "@tanstack/react-router": "1.168.60",
-    "@tanstack/router-core": "1.168.60"
+    "@tanstack/react-router": "1.168.60"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
