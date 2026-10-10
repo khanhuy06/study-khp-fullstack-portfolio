@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# SQLite local database (Không đẩy file dữ liệu cá nhân lên Git)
+*.db
+studyflow.db

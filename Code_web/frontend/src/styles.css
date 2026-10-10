@@ -1,0 +1,130 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-high: var(--high);
+  --color-medium: var(--medium);
+  --color-low: var(--low);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --color-glass: var(--glass);
+  --color-hover: var(--hover);
+
+  --color-cat-violet: var(--cat-violet);
+  --color-cat-green: var(--cat-green);
+  --color-cat-cyan: var(--cat-cyan);
+  --color-cat-amber: var(--cat-amber);
+  --color-cat-rose: var(--cat-rose);
+  --color-cat-slate: var(--cat-slate);
+
+  /* shadcn compatibility aliases */
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--raised);
+  --color-popover-foreground: var(--foreground);
+  --color-secondary: var(--raised);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--hover);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--high);
+  --color-destructive-foreground: var(--primary-foreground);
+
+  --animate-rise: rise 0.6s var(--ease) both;
+  --animate-sheen: sheen 6s var(--ease) infinite;
+}
+
+:root {
+  --radius: 0.75rem;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --background: hsl(230 28% 10%);
+  --surface: hsl(228 24% 14%);
+  --raised: hsl(228 22% 18%);
+  --foreground: hsl(220 25% 94%);
+  --muted: hsl(220 14% 62%);
+  --faint: hsl(220 12% 44%);
+  --primary: hsl(192 92% 55%);
+  --primary-foreground: hsl(220 30% 8%);
+  --high: hsl(354 78% 62%);
+  --medium: hsl(41 88% 58%);
+  --low: hsl(210 25% 66%);
+  --border: hsl(220 25% 94% / 0.08);
+  --glass: hsl(220 25% 94% / 0.05);
+  --hover: hsl(220 25% 94% / 0.06);
+
+  --cat-violet: hsl(265 90% 72%);
+  --cat-green: hsl(140 60% 62%);
+  --cat-cyan: hsl(192 92% 55%);
+  --cat-amber: hsl(41 88% 58%);
+  --cat-rose: hsl(340 80% 68%);
+  --cat-slate: hsl(210 25% 70%);
+}
+
+.light {
+  --background: hsl(220 33% 97%);
+  --surface: hsl(0 0% 100%);
+  --raised: hsl(220 30% 98%);
+  --foreground: hsl(228 30% 14%);
+  --muted: hsl(220 12% 42%);
+  --faint: hsl(220 10% 55%);
+  --primary: hsl(192 82% 38%);
+  --primary-foreground: hsl(0 0% 100%);
+  --high: hsl(354 68% 48%);
+  --medium: hsl(35 82% 42%);
+  --low: hsl(210 18% 45%);
+  --border: hsl(228 30% 14% / 0.1);
+  --glass: hsl(228 30% 14% / 0.03);
+  --hover: hsl(228 30% 14% / 0.04);
+
+  --cat-violet: hsl(265 70% 50%);
+  --cat-green: hsl(150 60% 32%);
+  --cat-cyan: hsl(192 82% 36%);
+  --cat-amber: hsl(35 82% 42%);
+  --cat-rose: hsl(340 70% 48%);
+  --cat-slate: hsl(210 18% 42%);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes sheen {
+  0%, 100% { opacity: 0; transform: translateX(-160%) skewX(-16deg); }
+  12% { opacity: 1; }
+  42% { opacity: 0; transform: translateX(340%) skewX(-16deg); }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}

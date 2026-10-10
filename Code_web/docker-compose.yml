@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  # =========================================================================
+  # 1. THÙNG DATABASE: PostgreSQL riêng biệt, cô lập hoàn toàn
+  # =========================================================================
+  db:
+    image: postgres:16-alpine
+    container_name: studyflow_db
+    restart: always
+    environment:
+      POSTGRES_USER: studyflow_user
+      POSTGRES_PASSWORD: studyflow_secure_password_2026
+      POSTGRES_DB: studyflow_production_db
+    volumes:
+      # Lưu trữ dữ liệu database bền vững trên ổ cứng máy chủ (không bị mất khi tắt container)
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal_network
+    # LƯU Ý BẢO MẬT: Không mở cổng (ports) ra ngoài Internet!
+    # Chỉ cho phép thùng api truy cập qua mạng nội bộ internal_network.
+
+  # =========================================================================
+  # 2. THÙNG BACKEND: FastAPI Server
+  # =========================================================================
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: studyflow_api
+    restart: always
+    depends_on:
+      - db
+    environment:
+      # Kết nối trực tiếp tới thùng db qua tên miền nội bộ của Docker: 'db:5432'
+      DATABASE_URL: postgresql://studyflow_user:studyflow_secure_password_2026@db:5432/studyflow_production_db
+      SECRET_KEY: ${SECRET_KEY:-c3R1ZHlmbG93X3N1cGVyX3NlY3JldF9qd3Rfa2V5X3BvcnRmb2xpb18yMDI2}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 10080
+    ports:
+      - "8000:8000"
+    networks:
+      - internal_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  # Mạng ảo nội bộ cô lập 100% giữa API và Database
+  internal_network:
+    driver: bridge
