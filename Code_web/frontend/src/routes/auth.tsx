@@ -80,11 +80,11 @@ function AuthPage() {
       return;
     }
 
-    // CHECK DUPLICATE REGISTRATION VULNERABILITY (Requirement 4)
+    // STRICT CHECK: PREVENT DUPLICATE REGISTRATION ACROSS SESSIONS
     const registered = getRegisteredUsers();
     const alreadyExists = registered.some((u) => u.email.toLowerCase() === normalizedEmail);
     if (alreadyExists) {
-      toast.error("This email is already registered! Please sign in instead.");
+      toast.error("This email is already registered! Please switch to the Sign In tab.");
       setMode("signin");
       return;
     }
@@ -132,7 +132,7 @@ function AuthPage() {
 
     // Secondary duplicate verification check
     if (registered.some((u) => u.email.toLowerCase() === normalizedEmail)) {
-      toast.error("This email is already registered! Please sign in instead.");
+      toast.error("This email is already registered! Please switch to Sign In.");
       setMode("signin");
       return;
     }
@@ -152,7 +152,7 @@ function AuthPage() {
       localStorage.setItem("studyflow_demo_mode", "false");
     }
 
-    toast.success(`Account verified successfully! Welcome, ${newUser.name}`);
+    toast.success(`Account created and verified! Welcome, ${newUser.name}`);
     navigate({ to: "/dashboard", replace: true });
   }
 
@@ -205,28 +205,9 @@ function AuthPage() {
           // ignore Supabase error
         }
 
-        // If no user exists with this email at all:
-        if (registered.length > 0) {
-          toast.error("No account found with this email. Please sign up first.");
-          setMode("signup");
-        } else {
-          // Fallback first-time registration directly
-          const localUser = {
-            id: "user-" + Math.random().toString(36).substring(2, 9),
-            email: normalizedEmail,
-            name: normalizedEmail.split("@")[0],
-            password,
-            createdAt: new Date().toISOString(),
-          };
-          registered.push(localUser);
-          if (typeof window !== "undefined") {
-            localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(registered));
-            localStorage.setItem("studyflow_current_user", JSON.stringify(localUser));
-            localStorage.setItem("studyflow_demo_mode", "false");
-          }
-          toast.success("Signed in successfully!");
-          navigate({ to: "/dashboard", replace: true });
-        }
+        // NO SILENT REGISTRATION ON SIGN IN: User must explicitly register
+        toast.error("No account found with this email. Please switch to Create Account tab to register.");
+        setMode("signup");
       } catch (err: any) {
         toast.error(err?.message || "Sign in failed");
       } finally {
@@ -304,24 +285,54 @@ function AuthPage() {
           </div>
         ) : (
           <>
-            <h1 className="mt-5 font-display text-2xl font-bold tracking-tight">
-              {mode === "signin" ? "Welcome back" : "Create your account"}
+            {/* Visual Tabs for Sign In vs Create Account */}
+            <div className="mt-5 flex rounded-xl border border-border bg-raised/60 p-1">
+              <button
+                type="button"
+                onClick={() => setMode("signin")}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  mode === "signin"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("signup")}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  mode === "signup"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+
+            <h1 className="mt-4 font-display text-xl font-bold tracking-tight">
+              {mode === "signin" ? "Welcome Back" : "Create New Account"}
             </h1>
-            <p className="mt-1 text-sm text-muted">Plan your study schedule, track habits, and maintain streaks.</p>
+            <p className="mt-1 text-xs text-muted">
+              {mode === "signin"
+                ? "Sign in to access your study blocks and streak."
+                : "Register with verified email to protect your account."}
+            </p>
 
             {/* Quick Demo Access */}
-            <div className="mt-5 rounded-xl border border-primary/25 bg-primary/10 p-3.5 text-center">
+            <div className="mt-4 rounded-xl border border-primary/25 bg-primary/10 p-3 text-center">
               <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-primary mb-1">
                 <Sparkles className="size-3.5" />
                 <span>Quick Demo Access (Instant)</span>
               </div>
-              <p className="text-[11px] text-muted mb-3 leading-relaxed">
+              <p className="text-[11px] text-muted mb-2.5 leading-relaxed">
                 Directly explore the timeline, dynamic duration, and schedule planner without an account!
               </p>
               <button
                 type="button"
                 onClick={enterDemoMode}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-display text-xs font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-[0.98]"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3.5 py-2 font-display text-xs font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-[0.98]"
               >
                 Explore Demo Mode
                 <ArrowRight className="size-3.5" />
@@ -333,7 +344,7 @@ function AuthPage() {
                 <div className="w-full border-t border-border" />
               </div>
               <span className="relative bg-surface/90 px-2 text-[10px] uppercase tracking-wider text-faint">
-                or {mode === "signin" ? "sign in with email" : "register with email verification"}
+                or {mode === "signin" ? "sign in with credentials" : "sign up with email verification"}
               </span>
             </div>
 
@@ -369,7 +380,7 @@ function AuthPage() {
                 className="w-full rounded-xl border border-border bg-raised/80 px-4 py-2.5 font-display text-xs font-semibold text-foreground transition-all hover:bg-raised active:scale-[0.99] disabled:opacity-60"
               >
                 {busy
-                  ? "Sending code..."
+                  ? "Processing..."
                   : mode === "signin"
                     ? "Sign In"
                     : "Register & Send Verification Email"}
@@ -380,7 +391,7 @@ function AuthPage() {
               onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
               className="mt-4 w-full font-mono text-[11px] text-faint transition-colors hover:text-primary"
             >
-              {mode === "signin" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+              {mode === "signin" ? "Need an account? Click here to Sign Up" : "Already registered? Click here to Sign In"}
             </button>
           </>
         )}

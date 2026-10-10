@@ -91,7 +91,7 @@ export function TaskRow({
             </span>
             {task.deadline && (
               <span className="font-mono text-[10px] text-faint">
-                Due {new Date(task.deadline).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                Due {new Date(task.deadline).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
               </span>
             )}
 

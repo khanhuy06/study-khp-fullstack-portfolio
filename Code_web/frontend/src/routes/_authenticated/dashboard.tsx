@@ -191,7 +191,7 @@ function Dashboard() {
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-faint">
               Today ·{" "}
-              {new Date().toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })}
+              {new Date().toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })}
             </p>
             <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-balance md:text-[34px]">
               Your study day

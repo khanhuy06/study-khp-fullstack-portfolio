@@ -134,10 +134,10 @@ function Planner() {
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-faint">Planner</p>
             <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">
               {view === "month"
-                ? anchorDate.toLocaleDateString([], { month: "long", year: "numeric" })
+                ? anchorDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
                 : view === "week"
-                  ? `Week of ${weekStart.toLocaleDateString([], { day: "numeric", month: "short" })}`
-                  : anchorDate.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })}
+                  ? `Week of ${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                  : anchorDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -363,7 +363,7 @@ function Planner() {
                 }`}
               >
                 <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
-                  {d.toLocaleDateString([], { weekday: "short" })}
+                  {d.toLocaleDateString("en-US", { weekday: "short" })}
                 </p>
                 <p className="font-display text-lg font-bold">{d.getDate()}</p>
                 <div className="mt-2 space-y-1">
