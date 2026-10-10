@@ -222,34 +222,49 @@ function getDemoTasks(): Task[] {
   return JSON.parse(raw);
 }
 
-function isDemoMode(): boolean {
-  return typeof window !== "undefined" && localStorage.getItem("studyflow_demo_mode") === "true";
+async function hasActiveSupabaseSession(): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return !!data?.session?.user?.id;
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchTasks(): Promise<Task[]> {
-  if (isDemoMode()) return getDemoTasks();
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("id,title,category_id,priority,deadline,plan_date,plan_hour,completed,completed_at,created_at")
-    .order("created_at", { ascending: true });
-  if (error) {
-    console.warn("Supabase fetchTasks failed, falling back to local demo:", error);
-    return getDemoTasks();
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session?.user) {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("id,title,category_id,priority,deadline,plan_date,plan_hour,completed,completed_at,created_at")
+        .order("created_at", { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data as Task[];
+      }
+    }
+  } catch (err) {
+    console.warn("Supabase fetchTasks error:", err);
   }
-  return (data ?? []) as Task[];
+  return getDemoTasks();
 }
 
 export async function fetchCategories(): Promise<Category[]> {
-  if (isDemoMode()) return getDemoCategories();
-  const { data, error } = await supabase
-    .from("categories")
-    .select("id,name,color")
-    .order("created_at", { ascending: true });
-  if (error) {
-    console.warn("Supabase fetchCategories failed, falling back to local demo:", error);
-    return getDemoCategories();
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session?.user) {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id,name,color")
+        .order("created_at", { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data as Category[];
+      }
+    }
+  } catch (err) {
+    console.warn("Supabase fetchCategories error:", err);
   }
-  return (data ?? []) as Category[];
+  return getDemoCategories();
 }
 
 export async function createTask(input: {
@@ -260,103 +275,110 @@ export async function createTask(input: {
   plan_date?: string;
   plan_hour?: number | null;
 }) {
-  if (isDemoMode()) {
-    const tasks = getDemoTasks();
-    const newTask: Task = {
-      id: "task-" + Date.now(),
-      title: input.title,
-      category_id: input.category_id ?? null,
-      priority: input.priority ?? "medium",
-      deadline: input.deadline ?? null,
-      plan_date: input.plan_date ?? toDateKey(new Date()),
-      plan_hour: input.plan_hour ?? null,
-      completed: false,
-      completed_at: null,
-      created_at: new Date().toISOString(),
-    };
-    tasks.push(newTask);
-    localStorage.setItem(DEMO_TASKS_KEY, JSON.stringify(tasks));
-    return;
-  }
-
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id;
-  if (!uid) {
-    // If not signed into Supabase, save to demo
-    const tasks = getDemoTasks();
-    tasks.push({
-      id: "task-" + Date.now(),
-      title: input.title,
-      category_id: input.category_id ?? null,
-      priority: input.priority ?? "medium",
-      deadline: input.deadline ?? null,
-      plan_date: input.plan_date ?? toDateKey(new Date()),
-      plan_hour: input.plan_hour ?? null,
-      completed: false,
-      completed_at: null,
-      created_at: new Date().toISOString(),
-    });
-    localStorage.setItem(DEMO_TASKS_KEY, JSON.stringify(tasks));
-    return;
-  }
-  const { error } = await supabase.from("tasks").insert({
-    user_id: uid,
+  const newTask: Task = {
+    id: "task-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
     title: input.title,
     category_id: input.category_id ?? null,
     priority: input.priority ?? "medium",
     deadline: input.deadline ?? null,
     plan_date: input.plan_date ?? toDateKey(new Date()),
     plan_hour: input.plan_hour ?? null,
-  });
-  if (error) throw error;
+    completed: false,
+    completed_at: null,
+    created_at: new Date().toISOString(),
+  };
+
+  // Always persist locally to guarantee immediate UI appearance
+  const localTasks = getDemoTasks();
+  localTasks.push(newTask);
+  localStorage.setItem(DEMO_TASKS_KEY, JSON.stringify(localTasks));
+
+  // Sync with Supabase if user is logged into Supabase
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    if (uid) {
+      await supabase.from("tasks").insert({
+        user_id: uid,
+        title: input.title,
+        category_id: input.category_id ?? null,
+        priority: input.priority ?? "medium",
+        deadline: input.deadline ?? null,
+        plan_date: input.plan_date ?? toDateKey(new Date()),
+        plan_hour: input.plan_hour ?? null,
+      });
+    }
+  } catch (err) {
+    console.warn("Supabase insert sync failed, saved locally:", err);
+  }
+  return newTask;
 }
 
 export async function updateTask(id: string, patch: Partial<Task>) {
-  if (isDemoMode()) {
-    const tasks = getDemoTasks();
-    const idx = tasks.findIndex((t) => t.id === id);
-    if (idx !== -1) {
-      tasks[idx] = { ...tasks[idx]!, ...patch };
-      localStorage.setItem(DEMO_TASKS_KEY, JSON.stringify(tasks));
-    }
-    return;
+  // Always update locally
+  const localTasks = getDemoTasks();
+  const idx = localTasks.findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    localTasks[idx] = { ...localTasks[idx]!, ...patch };
+    localStorage.setItem(DEMO_TASKS_KEY, JSON.stringify(localTasks));
   }
-  const { error } = await supabase.from("tasks").update(patch).eq("id", id);
-  if (error) throw error;
+
+  // Sync with Supabase if signed in
+  try {
+    const hasSession = await hasActiveSupabaseSession();
+    if (hasSession) {
+      await supabase.from("tasks").update(patch).eq("id", id);
+    }
+  } catch (err) {
+    console.warn("Supabase update sync failed:", err);
+  }
 }
 
 export async function deleteTask(id: string) {
-  if (isDemoMode()) {
-    const tasks = getDemoTasks().filter((t) => t.id !== id);
-    localStorage.setItem(DEMO_TASKS_KEY, JSON.stringify(tasks));
-    return;
+  // Always delete locally
+  const localTasks = getDemoTasks().filter((t) => t.id !== id);
+  localStorage.setItem(DEMO_TASKS_KEY, JSON.stringify(localTasks));
+
+  // Sync with Supabase if signed in
+  try {
+    const hasSession = await hasActiveSupabaseSession();
+    if (hasSession) {
+      await supabase.from("tasks").delete().eq("id", id);
+    }
+  } catch (err) {
+    console.warn("Supabase delete sync failed:", err);
   }
-  const { error } = await supabase.from("tasks").delete().eq("id", id);
-  if (error) throw error;
 }
 
 export async function createCategory(name: string, color: string) {
-  if (isDemoMode()) {
-    const categories = getDemoCategories();
-    categories.push({ id: "cat-" + Date.now(), name, color });
-    localStorage.setItem(DEMO_CATEGORIES_KEY, JSON.stringify(categories));
-    return;
+  const newCat: Category = { id: "cat-" + Date.now(), name, color };
+  const categories = getDemoCategories();
+  categories.push(newCat);
+  localStorage.setItem(DEMO_CATEGORIES_KEY, JSON.stringify(categories));
+
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    if (uid) {
+      await supabase.from("categories").insert({ user_id: uid, name, color });
+    }
+  } catch (err) {
+    console.warn("Supabase category insert failed:", err);
   }
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id;
-  if (!uid) throw new Error("Not signed in");
-  const { error } = await supabase.from("categories").insert({ user_id: uid, name, color });
-  if (error) throw error;
 }
 
 export async function deleteCategory(id: string) {
-  if (isDemoMode()) {
-    const categories = getDemoCategories().filter((c) => c.id !== id);
-    localStorage.setItem(DEMO_CATEGORIES_KEY, JSON.stringify(categories));
-    return;
+  const categories = getDemoCategories().filter((c) => c.id !== id);
+  localStorage.setItem(DEMO_CATEGORIES_KEY, JSON.stringify(categories));
+
+  try {
+    const hasSession = await hasActiveSupabaseSession();
+    if (hasSession) {
+      await supabase.from("categories").delete().eq("id", id);
+    }
+  } catch (err) {
+    console.warn("Supabase category delete failed:", err);
   }
-  const { error } = await supabase.from("categories").delete().eq("id", id);
-  if (error) throw error;
 }
 
 /** Consecutive days (ending today or yesterday) with at least one completed task. */

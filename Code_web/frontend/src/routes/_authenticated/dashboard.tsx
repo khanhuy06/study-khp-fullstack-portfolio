@@ -66,12 +66,13 @@ function Dashboard() {
     mutationFn: ({ title, plan_hour }: { title: string; plan_hour?: number | null }) =>
       createTask({ title, plan_date: today, plan_hour }),
     onSuccess: () => {
+      toast.success("Task added successfully!");
       setQuick("");
       setQuickStart("");
       setQuickEnd("");
       invalidate();
     },
-    onError: () => toast.error("Could not add that task"),
+    onError: (err: any) => toast.error(err?.message || "Could not add that task"),
   });
 
   const toggle = useMutation({
@@ -218,6 +219,12 @@ function Dashboard() {
           <input
             value={quick}
             onChange={(e) => setQuick(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleQuickSubmit(e);
+              }
+            }}
             placeholder="Quick capture — type a study task..."
             className="min-w-[200px] flex-1 bg-transparent text-sm placeholder:text-faint focus:outline-none"
           />

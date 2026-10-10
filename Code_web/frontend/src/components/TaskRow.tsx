@@ -151,11 +151,12 @@ export function TaskRow({
             onChange={(e) => setStartTime(e.target.value)}
             className="rounded border border-border bg-raised px-2 py-1 font-mono text-[11px] text-foreground focus:outline-none"
           />
-          <span className="font-mono text-[11px] text-muted">To:</span>
+          <span className="font-mono text-[11px] text-muted">To (optional):</span>
           <input
             type="time"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
+            title="End time (optional — leave blank if no duration needed)"
             className="rounded border border-border bg-raised px-2 py-1 font-mono text-[11px] text-foreground focus:outline-none"
           />
           <button

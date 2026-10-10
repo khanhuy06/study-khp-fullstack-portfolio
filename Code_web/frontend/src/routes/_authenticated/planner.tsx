@@ -80,13 +80,14 @@ function Planner() {
       });
     },
     onSuccess: () => {
+      toast.success("Task added successfully!");
       setTitle("");
       setStartTime("");
       setEndTime("");
       setDeadline("");
       invalidate();
     },
-    onError: () => toast.error("Could not create that task"),
+    onError: (err: any) => toast.error(err?.message || "Could not create that task"),
   });
 
   const toggle = useMutation({
@@ -184,6 +185,12 @@ function Planner() {
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (title.trim()) add.mutate();
+              }
+            }}
             placeholder="Assignment or study task title..."
             className="min-w-[180px] flex-1 bg-transparent px-2 text-sm placeholder:text-faint focus:outline-none"
           />
