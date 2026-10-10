@@ -23,6 +23,7 @@ export function AppShell({ children, streak }: { children: ReactNode; streak?: n
     queryClient.clear();
     if (typeof window !== "undefined") {
       localStorage.removeItem("studyflow_demo_mode");
+      localStorage.removeItem("studyflow_current_user");
     }
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
